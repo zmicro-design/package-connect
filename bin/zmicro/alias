@@ -70,13 +70,15 @@ connect_doreamon() {
   *)
     config::load_file $PACKAGE_CONFIG
 
+    package::config_set PORT text "Web Port" 9000
+
     package::config_set SECRET_KEY text "Secret Key for JWT Token" $(os::uuid)
 
     package::config_set CLIENT_ID text "Doreamon Client ID"
     package::config_set CLIENT_SECRET text "Doreamon Client Secret"
-    package::config_set REDIRECT_URI text "Doreamon Client Redirect URI"
+    package::config_set REDIRECT_URI text "Doreamon Client Redirect URI" "http://127.0.0.1:9000/login/doreamon/callback"
 
-    package::config_set UPSTREAM text "Upstream"
+    package::config_set UPSTREAM text "Upstream" "http://127.0.0.1:8080"
 
     connect doreamon
     ;;
