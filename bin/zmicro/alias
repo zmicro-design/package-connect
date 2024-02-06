@@ -1,19 +1,92 @@
 #!/bin/bash
 
+# @TODO
 export PACKAGE_NAME="connect"
+export PACKAGE_CONFIG_DIR="$ZMICRO_PLUGINS_CONFIGS_PATH/package/$PACKAGE_NAME"
+export PACKAGE_CONFIG="$PACKAGE_CONFIG_DIR/config"
+
 import "$ZMICRO_PACKAGES_PATH/$PACKAGE_NAME/config"
 import "$ZMICRO_PACKAGES_PATH/$PACKAGE_NAME/core"
 
+if [ ! -d "$PACKAGE_CONFIG_DIR" ]; then
+  mkdir -p $PACKAGE_CONFIG_DIR >>/dev/null 2>&1
+  if [ "$?" != "0" ]; then
+    sudo mkdir -p $PACKAGE_CONFIG_DIR
+    if [ "$?" != "0" ]; then
+      log::error "[$(timestamp)][package][$PACKAGE_NAME] failed to create config directory $PACKAGE_CONFIG_DIR ."
+      exit 1
+    fi
+  fi
+fi
+
+if [ ! -w "$PACKAGE_CONFIG_DIR" ]; then
+  sudo chown -R $USER:$USER $PACKAGE_CONFIG_DIR
+  if [ "$?" != "0" ]; then
+    log::error "[$(timestamp)][package][$PACKAGE_NAME] failed to change owner of config directory $PACKAGE_CONFIG_DIR ."
+    exit 1
+  fi
+fi
+
+if [ ! -f "$PACKAGE_CONFIG" ]; then
+  touch $PACKAGE_CONFIG >>/dev/null 2>&1
+  if [ "$?" != "0" ]; then
+    sudo touch $PACKAGE_CONFIG
+    if [ "$?" != "0" ]; then
+      log::error "[$(timestamp)][package][$PACKAGE_NAME] failed to create config file $PACKAGE_CONFIG ."
+      exit 1
+    fi
+  fi
+fi
+
 help() {
   echo "Usage:"
-  echo "  zmicro connect <args ...>"
+  echo "  zmicro connect <doreamon|serve> <args ...>"
   echo ""
-
-  connect --help
+  echo "Commands:"
+  echo "  doreamon - Doreamon Connect"
+  echo "    zmicro connect doreamon         -- Start Doreamon Connect Server"
+  echo "    zmicro connect doreamon config  -- Edit Doreamon Connect Config"
+  echo ""
+  echo "  serve - Serve Connect"
+  echo "    zmicro connect serve            -- Serve Connect"
+  echo ""
 }
 
 version() {
   connect --version
+}
+
+package::config_set() {
+  config::check_or_set $1 $2 $PACKAGE_CONFIG "${@:3}"
+}
+
+connect_doreamon() {
+  local action=$1
+
+  case $action in
+  config)
+    vim $PACKAGE_CONFIG
+    ;;
+  *)
+    config::load_file $PACKAGE_CONFIG
+
+    package::config_set SECRET_KEY text "Secret Key for JWT Token" $(os::uuid)
+
+    package::config_set CLIENT_ID text "Doreamon Client ID"
+    package::config_set CLIENT_SECRET text "Doreamon Client Secret"
+    package::config_set REDIRECT_URI text "Doreamon Client Redirect URI"
+
+    package::config_set UPSTREAM text "Upstream"
+
+    connect doreamon
+    ;;
+  esac
+
+
+}
+
+connect_serve() {
+  connect serve $@
 }
 
 core() {
@@ -32,8 +105,14 @@ core() {
   -v | --version | version)
     version
     ;;
+  doreamon)
+    connect_doreamon ${@:2}
+    ;;
+  serve)
+    connect_serve ${@:2}
+    ;;
   *)
-    connect "$@"
+    help
     ;;
   esac
 }
